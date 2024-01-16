@@ -1,15 +1,37 @@
 "use client";
 import { FormInputPost } from "@/types";
+import { Tag } from "@prisma/client";
+import { useQuery } from "@tanstack/react-query";
+import axios from "axios";
 import { FC } from "react";
 import { SubmitHandler, useForm } from "react-hook-form";
 
 interface FormPostProps {
   submit: SubmitHandler<FormInputPost>;
   isEditing: boolean;
+  initialValues?: FormInputPost;
+  isLoadingSubmit: boolean;
 }
 
-const FormPost: FC<FormPostProps> = ({ submit, isEditing }) => {
-  const { register, handleSubmit } = useForm<FormInputPost>();
+const FormPost: FC<FormPostProps> = ({
+  submit,
+  isEditing,
+  initialValues,
+  isLoadingSubmit,
+}) => {
+  const { register, handleSubmit } = useForm<FormInputPost>({
+    defaultValues: initialValues,
+  });
+
+  //fetch list of tags
+  const { data: dataTags, isLoading: isLoadingTags } = useQuery<Tag[]>({
+    queryKey: ["tags"],
+    queryFn: async () => {
+      const res = await axios.get("/api/tags");
+      return res.data;
+    },
+  });
+  // console.log(dataTags);
 
   return (
     <form
@@ -28,19 +50,35 @@ const FormPost: FC<FormPostProps> = ({ submit, isEditing }) => {
         placeholder="Content"
         {...register("content", { required: true })}
       ></textarea>
-      <select
-        className="select select-bordered w-full max-w-xs"
-        defaultValue={""}
-        {...register("tag", { required: true })}
-      >
-        <option disabled value="">
-          Select tags
-        </option>
-        <option>javascript</option>
-        <option>python</option>
-      </select>
+
+      {isLoadingTags ? (
+        <span className="loading loading-spinner text-primary"></span>
+      ) : (
+        <select
+          className="select select-bordered w-full max-w-xs"
+          defaultValue={""}
+          {...register("tagId", { required: true })}
+        >
+          <option disabled value="">
+            Select tags
+          </option>
+          {dataTags?.map((tag) => (
+            <option key={tag.id} value={tag.id}>
+              {tag.name}
+            </option>
+          ))}
+        </select>
+      )}
+
       <button type="submit" className="btn btn-primary w-full max-w-lg">
-        {isEditing ? "Update" : "Create"}
+        {isLoadingSubmit && <span className="loading loading-spinner"></span>}
+        {isEditing
+          ? isLoadingSubmit
+            ? "Updating..."
+            : "Update"
+          : isLoadingSubmit
+          ? "Creating..."
+          : "Create"}
       </button>
     </form>
   );
